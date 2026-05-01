@@ -107,12 +107,15 @@ class HomeInterface(QWidget):
         right_layout = QVBoxLayout()
         right_layout.setSpacing(10)
 
-        # 设置容器
+        # 설정 컨테이너는 생성하지만 숨겨둠 (팀 사용 단순화 목적).
+        # SettingInterface 객체는 이미지 모드 등에서 inpaint 모델 락 처리에 여전히 사용되므로
+        # 인스턴스만 만들고 화면에는 표시하지 않는다.
         settings_container = CardWidget(self)
         self.setting_interface = SettingInterface(settings_container)
         settings_container.setLayout(self.setting_interface)
-        right_layout.addWidget(settings_container)
-        
+        settings_container.setVisible(False)
+        # right_layout 에 추가하지 않음 → 빈 공간도 차지하지 않음
+
         # 添加任务列表容器
         task_list_container = CardWidget(self)
         task_list_layout = QHBoxLayout()

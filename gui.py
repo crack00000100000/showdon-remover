@@ -4,13 +4,55 @@
 @Time    : 2023/4/1 6:07 下午（原始时间）
 @FileName: gui.py
 @desc: 字幕去除器图形化界面（由 PySimpleGUI 改写为 PySide6）
+       简화 버전: 사이드 메뉴/고급 설정/우측 설정 카드 모두 숨김.
+                 기본값을 한국어 / STTN 지능형 제거 / 정밀 / 하드웨어 가속 On 으로 강제 고정.
 """
 
 import sys
 import os
+import json
 import configparser
-import cv2
 import multiprocessing
+from pathlib import Path
+
+
+def _prewrite_fixed_config():
+    """backend.config 가 로딩되기 전에 config.json 을 강제 고정값으로 미리 기록한다.
+
+    이렇게 하면 모듈 로딩 단계에서 한국어 ini 파일이 정확히 로드되고,
+    팀 사용자가 설정을 건드리지 못하게 된다.
+    """
+    try:
+        # gui.py 와 같은 위치 기준
+        base_dir = Path(__file__).resolve().parent
+        config_path = base_dir / "config" / "config.json"
+        config_path.parent.mkdir(parents=True, exist_ok=True)
+
+        data = {}
+        if config_path.exists():
+            try:
+                with open(config_path, "r", encoding="utf-8") as f:
+                    data = json.load(f) or {}
+            except Exception:
+                data = {}
+
+        data.setdefault("Window", {})["Interface"] = "ko"
+        data.setdefault("Main", {})
+        data["Main"]["InpaintMode"] = "sttn-auto"
+        data["Main"]["SubtitleDetectMode"] = "PP_OCRv5_SERVER"
+        data["Main"]["HardwareAcceleration"] = True
+        data["Main"]["CheckUpdateOnStartup"] = False
+
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+    except Exception as e:
+        print(f"[warn] 고정 설정 사전 기록 실패: {e}")
+
+
+# backend.config 임포트 전에 반드시 실행
+_prewrite_fixed_config()
+
+import cv2
 from PySide6.QtCore import Qt, QTranslator
 from PySide6 import QtCore, QtWidgets, QtGui
 from PySide6.QtWidgets import QApplication, QFrame, QStackedWidget, QHBoxLayout, QLabel
@@ -22,41 +64,62 @@ from qfluentwidgets import (FluentWindow, PushButton, Slider, ProgressBar, Plain
 
 from qframelesswindow.utils import getSystemAccentColor
 from backend.config import config, tr, VERSION
+from backend.tools.constant import InpaintMode, SubtitleDetectMode
 from backend.tools.theme_listener import SystemThemeListener
 from backend.tools.process_manager import ProcessManager
-from ui.advanced_setting_interface import AdvancedSettingInterface
 from ui.home_interface import HomeInterface
 
 
-class SubtitleExtractorGUI(FluentWindow): 
+def _force_fixed_settings():
+    """팀 사용자가 설정을 건드리지 않도록 핵심 옵션을 고정값으로 강제한다.
+
+    - 인터페이스 언어: 한국어 (ko)
+    - 처리 모델: STTN 지능형 제거 (STTN_AUTO)
+    - 자막 감지: 정밀 (PP_OCRv5_SERVER)
+    - 하드웨어 가속: On
+    - 시작 시 업데이트 확인: Off (팝업 방지)
+    """
+    try:
+        if config.interface.value != 'ko':
+            config.set(config.interface, 'ko')
+    except Exception:
+        pass
+    try:
+        if config.inpaintMode.value != InpaintMode.STTN_AUTO:
+            config.set(config.inpaintMode, InpaintMode.STTN_AUTO)
+    except Exception:
+        pass
+    try:
+        if config.subtitleDetectMode.value != SubtitleDetectMode.PP_OCRv5_SERVER:
+            config.set(config.subtitleDetectMode, SubtitleDetectMode.PP_OCRv5_SERVER)
+    except Exception:
+        pass
+    try:
+        if config.hardwareAcceleration.value is not True:
+            config.set(config.hardwareAcceleration, True)
+    except Exception:
+        pass
+    try:
+        if config.checkUpdateOnStartup.value is not False:
+            config.set(config.checkUpdateOnStartup, False)
+    except Exception:
+        pass
+
+
+class SubtitleExtractorGUI(FluentWindow):
     def __init__(self):
         super().__init__()
         # 禁用云母效果
         self.setMicaEffectEnabled(False)
-        # 设置深色主题并跟随系统主题色
-        # setTheme(Theme.LIGHT)
-        # setThemeColor(getSystemAccentColor(), save=True)
 
-        # 初始化系统主题监听器并连接信号
-        # self.themeListener = SystemThemeListener(self)
-        # self.themeListener.start()
- 
         # 设置窗口图标
         self.setWindowIcon(QtGui.QIcon("design/vsr.ico"))
         self.setWindowTitle(tr['SubtitleExtractorGUI']['Title'] + " v" + VERSION)
         # 创建界面布局
         self._create_layout()
         self._connectSignalToSlot()
-        self._lazy_check_update()
-
-    def _lazy_check_update(self):
-        """ 延迟检查更新 """
-        if not config.checkUpdateOnStartup.value:
-            return
-        self.check_update_timer = QtCore.QTimer(self)
-        self.check_update_timer.setSingleShot(True)
-        self.check_update_timer.timeout.connect(lambda: self.advancedSettingInterface.check_update(ignore=True))
-        self.check_update_timer.start(2000)
+        # 좌측 네비게이션(사이드 메뉴) 완전 숨김
+        self._hide_navigation_panel()
 
     def _connectSignalToSlot(self):
         config.appRestartSig.connect(self._showRestartTooltip)
@@ -71,22 +134,19 @@ class SubtitleExtractorGUI(FluentWindow):
         )
 
     def _create_layout(self):
-        # 创建主页面和高级设置页面
+        # 메인 페이지만 추가 (고급 설정은 숨김)
         self.homeInterface = HomeInterface(self)
         self.homeInterface.setObjectName("HomeInterface")
-        self.advancedSettingInterface = AdvancedSettingInterface(self)
-        self.advancedSettingInterface.setObjectName("AdvancedSettingInterface")
-        
-        # 添加到主窗口作为子界面
-        self.addSubInterface(self.homeInterface,FluentIcon.HOME, tr['SubtitleExtractorGUI']['Title'])
-        self.addSubInterface(self.advancedSettingInterface, FluentIcon.SETTING, tr['Setting']['AdvancedSetting'], NavigationItemPosition.BOTTOM)
+        self.addSubInterface(self.homeInterface, FluentIcon.HOME, tr['SubtitleExtractorGUI']['Title'])
 
-    def on_navigation_item_changed(self, key):
-        """导航项变更时的处理函数"""
-        if key == 'main':
-            self.stackWidget.setCurrentIndex(0)
-        elif key == 'advanced':
-            self.stackWidget.setCurrentIndex(1)
+    def _hide_navigation_panel(self):
+        """좌측 네비게이션 패널을 숨겨 단일 화면처럼 보이게 함."""
+        try:
+            if getattr(self, "navigationInterface", None) is not None:
+                self.navigationInterface.hide()
+                self.navigationInterface.setFixedWidth(0)
+        except Exception as e:
+            print(f"네비게이션 패널 숨김 실패: {e}")
 
     def closeEvent(self, event):
         """程序关闭时保存窗口位置并清理资源"""
@@ -133,8 +193,8 @@ class SubtitleExtractorGUI(FluentWindow):
 
             # 确保窗口在屏幕内
             screen_rect = QtWidgets.QApplication.primaryScreen().availableGeometry()
-            if (x >= 0 and y >= 0 and 
-                x + width <= screen_rect.width() and 
+            if (x >= 0 and y >= 0 and
+                x + width <= screen_rect.width() and
                 y + height <= screen_rect.height()):
                 self.setGeometry(x, y, width, height)
             else:
@@ -142,7 +202,7 @@ class SubtitleExtractorGUI(FluentWindow):
         except Exception as e:
             print(e)
             self.center_window()
-    
+
     def center_window(self):
         """将窗口居中显示"""
         screen_rect = QtWidgets.QApplication.primaryScreen().availableGeometry()
@@ -167,6 +227,10 @@ if __name__ == '__main__':
     Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     app = QtWidgets.QApplication(sys.argv)
     app.setAttribute(Qt.AA_DontCreateNativeWidgetSiblings)
+
+    # 메모리 상의 config 객체에도 한 번 더 고정값을 적용 (이중 안전장치)
+    _force_fixed_settings()
+
     window = SubtitleExtractorGUI()
     # 先设置透明, 再显示, 否则会有闪烁的效果
     window.setWindowOpacity(0.0)
