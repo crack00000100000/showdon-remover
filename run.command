@@ -61,15 +61,22 @@ if [ ! -f "gui.py" ]; then
 fi
 
 # ---- 3. 필수 모델 파일 점검 -----------------------------------------------
-declare -A REQUIRED_MODELS=(
-  ["backend/models/sttn-auto/infer_model.pth"]="STTN 지능형 제거 모델"
-  ["backend/models/V5/ch_det/inference.pdiparams"]="Paddle OCR (자막 검출)"
+# (macOS 기본 bash 3.2 호환을 위해 평행 배열로 작성)
+REQUIRED_MODEL_PATHS=(
+  "backend/models/sttn-auto/infer_model.pth"
+  "backend/models/V5/ch_det/inference.pdiparams"
+)
+REQUIRED_MODEL_NAMES=(
+  "STTN 지능형 제거 모델"
+  "Paddle OCR (자막 검출)"
 )
 
 MISSING_MODELS=()
-for path in "${!REQUIRED_MODELS[@]}"; do
+for i in "${!REQUIRED_MODEL_PATHS[@]}"; do
+  path="${REQUIRED_MODEL_PATHS[$i]}"
+  name="${REQUIRED_MODEL_NAMES[$i]}"
   if [ ! -f "$path" ]; then
-    MISSING_MODELS+=("${REQUIRED_MODELS[$path]} ($path)")
+    MISSING_MODELS+=("$name ($path)")
   fi
 done
 
