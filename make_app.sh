@@ -1,12 +1,12 @@
 #!/bin/bash
 # =============================================================================
-# make_app.sh — '자막 제거 도구.app' 번들 빌드 스크립트 (VSR)
+# make_app.sh — '쇼돈 자막 제거기.app' 번들 빌드 스크립트
 #
 # 사용:
 #     ./make_app.sh
 #
 # 결과:
-#     dist/자막 제거 도구.app
+#     dist/쇼돈 자막 제거기.app
 #
 # 동작:
 #     1) design/icon.svg → design/icon.icns 변환
@@ -21,9 +21,11 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-APP_NAME="자막 제거 도구"
+APP_NAME="쇼돈 자막 제거기"
+LEGACY_APP_NAME="자막 제거 도구"
 DIST_DIR="dist"
 APP_DIR="${DIST_DIR}/${APP_NAME}.app"
+LEGACY_APP_DIR="${DIST_DIR}/${LEGACY_APP_NAME}.app"
 CONTENTS="${APP_DIR}/Contents"
 
 GREEN='\033[0;32m'
@@ -62,6 +64,11 @@ ok "icon.icns 생성 완료"
 # ---- 2) .app 디렉토리 구조 ---------------------------------------------
 step "2/4  .app 번들 구조 생성"
 rm -rf "${APP_DIR}"
+# 옛 이름의 .app 가 dist 에 남아있으면 같이 정리
+if [ -d "${LEGACY_APP_DIR}" ]; then
+    rm -rf "${LEGACY_APP_DIR}"
+    ok "옛 ${LEGACY_APP_NAME}.app 정리"
+fi
 mkdir -p "${CONTENTS}/MacOS" "${CONTENTS}/Resources"
 
 cp design/Info.plist "${CONTENTS}/Info.plist"

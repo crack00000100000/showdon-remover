@@ -128,8 +128,12 @@ class SubtitleExtractorGUI(FluentWindow):
         self._hide_navigation_panel()
 
     # macOS 트래픽 라이트(닫기/최소화/최대화)를 좌측에 배치 (네이티브 macOS 관례)
+    # 폭은 트래픽 라이트(78px) + 여유 — 타이틀 라벨이 트래픽 라이트와 겹치지 않게.
+    _TITLE_BAR_LEFT_PAD = 92
+
     def systemTitleBarRect(self, size: QSize) -> QRect:
-        return QRect(0, 0 if self.isFullScreen() else 9, 75, size.height())
+        return QRect(0, 0 if self.isFullScreen() else 9,
+                     self._TITLE_BAR_LEFT_PAD, size.height())
 
     def _connectSignalToSlot(self):
         config.appRestartSig.connect(self._showRestartTooltip)
@@ -155,8 +159,28 @@ class SubtitleExtractorGUI(FluentWindow):
             if getattr(self, "navigationInterface", None) is not None:
                 self.navigationInterface.hide()
                 self.navigationInterface.setFixedWidth(0)
+            self._reposition_title_bar()
         except Exception as e:
             print(f"네비게이션 패널 숨김 실패: {e}")
+
+    def _reposition_title_bar(self):
+        """
+        FluentWindow 는 navigation 폭(46px) 만큼 titleBar 를 우측으로 옮기는데
+        사이드바 숨길 경우 트래픽 라이트(좌측) 와 타이틀이 겹친다 — 직접 더 우측으로.
+        """
+        try:
+            tb = getattr(self, "titleBar", None)
+            if tb is None:
+                return
+            tb.move(self._TITLE_BAR_LEFT_PAD, 0)
+            tb.resize(max(self.width() - self._TITLE_BAR_LEFT_PAD, 0),
+                      tb.height())
+        except Exception:
+            pass
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._reposition_title_bar()
 
     def closeEvent(self, event):
         """程序关闭时保存窗口位置并清理资源"""

@@ -1,4 +1,4 @@
-# 쇼돈 자막 제거 도구
+# 쇼돈 자막 제거기
 
 영상에 박힌 자막을 AI로 제거합니다.
 
@@ -26,7 +26,7 @@ cd ~/Downloads && curl -fsSL -o install.command https://raw.githubusercontent.co
 
 ## 실행
 
-`~/showdon/showdon-remover/dist/자막 제거 도구.app` 더블클릭.
+`~/showdon/showdon-remover/dist/쇼돈 자막 제거기.app` 더블클릭.
 
 처음에는 macOS가 "확인되지 않은 개발자" 경고를 띄울 수 있어요 — 그땐 우클릭 → **열기** → 다이얼로그에서 다시 **열기** 클릭. 한 번만 허용하면 다음부턴 더블클릭으로 됩니다.
 

@@ -6,8 +6,8 @@ from qfluentwidgets import (qconfig, ConfigItem, QConfig, OptionsValidator, Bool
 from backend.tools.constant import InpaintMode, SubtitleDetectMode
 import configparser
 
-# 项目版本号
-VERSION = "1.4.0"
+# 쇼돈 자막 제거기 버전 — 쇼돈 워크스페이스 기준 v0.1 부터 시작
+VERSION = "0.1.0"
 PROJECT_HOME_URL = "https://github.com/YaoFANGUK/video-subtitle-remover"
 PROJECT_ISSUES_URL = PROJECT_HOME_URL + "/issues"
 PROJECT_RELEASES_URL = PROJECT_HOME_URL + "/releases"
