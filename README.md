@@ -9,7 +9,7 @@
 ## 2. 아래 한 줄 복사해서 붙여넣고 Enter
 
 ```
-cd ~/Downloads && curl -fsSL -o 쇼돈_리무버_install.command "https://raw.githubusercontent.com/crack00000100000/showdon-remover/main/%EC%87%BC%EB%8F%88_%EB%A6%AC%EB%AC%B4%EB%B2%84_install.command" && chmod +x 쇼돈_리무버_install.command && xattr -d com.apple.quarantine 쇼돈_리무버_install.command 2>/dev/null && open 쇼돈_리무버_install.command
+cd ~/Downloads && curl -fsSL -o 쇼돈_리무버_install.command "https://raw.githubusercontent.com/crack00000100000/showdon-remover/main/%EC%87%BC%EB%8F%88_%EB%A6%AC%EB%AC%B4%EB%B2%84_install.command" && chmod +x 쇼돈_리무버_install.command && xattr -d com.apple.quarantine 쇼돈_리무버_install.command 2>/dev/null && open -a Terminal 쇼돈_리무버_install.command
 ```
 
 ## 3. 설치 진행
@@ -52,7 +52,7 @@ cd ~/Downloads && curl -fsSL -o 쇼돈_리무버_install.command "https://raw.gi
 코드만 업데이트했거나 첫 install 에서 .app 빌드만 실패했으면, 아래 한 줄로 .app 만 다시 빌드 가능합니다:
 
 ```
-cd ~/Downloads && curl -fsSL -o 쇼돈_리무버_app_builder.command "https://raw.githubusercontent.com/crack00000100000/showdon-remover/main/%EC%87%BC%EB%8F%88_%EB%A6%AC%EB%AC%B4%EB%B2%84_app_builder.command" && chmod +x 쇼돈_리무버_app_builder.command && xattr -d com.apple.quarantine 쇼돈_리무버_app_builder.command 2>/dev/null && open 쇼돈_리무버_app_builder.command
+cd ~/Downloads && curl -fsSL -o 쇼돈_리무버_app_builder.command "https://raw.githubusercontent.com/crack00000100000/showdon-remover/main/%EC%87%BC%EB%8F%88_%EB%A6%AC%EB%AC%B4%EB%B2%84_app_builder.command" && chmod +x 쇼돈_리무버_app_builder.command && xattr -d com.apple.quarantine 쇼돈_리무버_app_builder.command 2>/dev/null && open -a Terminal 쇼돈_리무버_app_builder.command
 ```
 
 → 자동으로 `git pull` + `make_app.sh` 실행해서 `~/showdon/showdon-remover/dist/쇼돈 자막 제거기.app` 갱신.
