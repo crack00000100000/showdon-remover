@@ -105,12 +105,24 @@ class Config(QConfig):
     # 启动时检查应用更新
     checkUpdateOnStartup = ConfigItem("Main", "CheckUpdateOnStartup", True, BoolValidator())
 
-    # 视频保存目录
+    # 视频保存目录 — 기본값은 ~/showdon/removeds/ (자막 제거 결과물 저장)
     saveDirectory = ConfigItem("Main", "SaveDirectory", "", ConfigValidator())
+
+# 새 기본 저장 폴더 — ~/showdon/ 하위로 통일
+DEFAULT_SAVE_DIR = str(Path.home() / "showdon" / "removeds")
 
 CONFIG_FILE = 'config/config.json'
 config = Config()
 qconfig.load(CONFIG_FILE, config)
+
+# saveDirectory 가 비어 있거나 (구 동작: 입력 영상 옆에 저장) 또는 명시적으로 설정 안 됐으면
+# 새 기본 경로로 자동 설정
+if not config.saveDirectory.value:
+    config.set(config.saveDirectory, DEFAULT_SAVE_DIR)
+try:
+    os.makedirs(config.saveDirectory.value, exist_ok=True)
+except Exception as _e:
+    print(f"[warn] 저장 폴더 생성 실패: {_e}")
 
 # 向后兼容：旧的 SubtitleDetectMode 枚举值为中文，迁移为新值
 _detect_mode_value = config.subtitleDetectMode.value

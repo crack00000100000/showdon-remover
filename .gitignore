@@ -189,6 +189,8 @@ __pycache__/
 build/
 develop-eggs/
 dist/
+design/icon.icns
+design/icon.iconset/
 downloads/
 eggs/
 .eggs/

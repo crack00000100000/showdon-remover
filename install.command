@@ -16,9 +16,20 @@
 set -uo pipefail
 
 # ---- 설정 ------------------------------------------------------------------
-REPO_URL="https://github.com/crack00000100000/showdon-vsr.git"
-INSTALL_DIR="$HOME/Documents/showdon-vsr"
+REPO_URL="https://github.com/crack00000100000/showdon-remover.git"
+# 설치 경로 — ~/Documents/ 는 macOS TCC 보호 대상이라 .app 권한 문제 발생.
+# 홈 아래 비보호 경로 (~/showdon/) 에 두면 .app 정상 동작.
+INSTALL_DIR="$HOME/showdon/showdon-remover"
+# (구) 경로 후보들 — install.command 가 자동으로 새 경로로 이주시킴
+LEGACY_INSTALL_DIRS=(
+    "$HOME/Documents/video-subtitle-remover"
+    "$HOME/Documents/showdon-vsr"
+    "$HOME/showdon/showdon-vsr"
+)
 PYTHON_BIN="python3.13"
+
+# 스크립트가 기존 설치 폴더 안에서 실행됐을 수 있으므로 cwd 를 안전한 곳으로 이동
+cd "$HOME"
 
 # ---- 색상 / 헬퍼 -----------------------------------------------------------
 RED='\033[0;31m'
@@ -148,13 +159,32 @@ else
   brew install git
 fi
 
-# ---- 7. 저장소 클론 / 업데이트 ---------------------------------------------
+# ---- 7. 저장소 클론 / 업데이트 / 이주 ---------------------------------------
 step "7. showdon-vsr 저장소"
+
+# 7-a) 구 경로(~/Documents/...)에 설치돼 있고 새 경로엔 없으면 자동 이주
+#      모델 파일(1.4GB)은 mv 로 보존되므로 다시 다운로드하지 않음.
+#      videoEnv 는 절대 경로가 박혀있어 이주 후 재생성 필요.
+if [ ! -d "$INSTALL_DIR/.git" ]; then
+  for OLD in "${LEGACY_INSTALL_DIRS[@]}"; do
+    if [ -d "$OLD/.git" ] && [ ! -d "$INSTALL_DIR" ]; then
+      warn "기존 설치 감지: $OLD"
+      info "새 경로로 이주: $INSTALL_DIR"
+      mkdir -p "$(dirname "$INSTALL_DIR")"
+      mv "$OLD" "$INSTALL_DIR"
+      # 절대 경로가 박혀있는 venv 는 이주 후 작동 보장이 안 되므로 삭제 → 재생성
+      rm -rf "$INSTALL_DIR/videoEnv"
+      ok "이주 완료 (videoEnv 는 다음 단계에서 재생성)"
+      break
+    fi
+  done
+fi
+
+# 7-b) 클론 또는 업데이트
 if [ -d "$INSTALL_DIR/.git" ]; then
-  info "기존 설치 감지됨: $INSTALL_DIR"
   info "최신 버전으로 업데이트 (git pull)..."
   cd "$INSTALL_DIR"
-  git pull origin main
+  git pull origin main || warn "git pull 실패 (오프라인/인증 이슈) — 기존 코드로 진행"
   ok "업데이트 완료"
 elif [ -d "$INSTALL_DIR" ]; then
   err "$INSTALL_DIR 폴더가 존재하지만 git 저장소가 아닙니다."

@@ -53,7 +53,7 @@ def _prewrite_fixed_config():
 _prewrite_fixed_config()
 
 import cv2
-from PySide6.QtCore import Qt, QTranslator
+from PySide6.QtCore import Qt, QTranslator, QRect, QSize
 from PySide6 import QtCore, QtWidgets, QtGui
 from PySide6.QtWidgets import QApplication, QFrame, QStackedWidget, QHBoxLayout, QLabel
 from qfluentwidgets import (FluentWindow, PushButton, Slider, ProgressBar, PlainTextEdit,
@@ -112,14 +112,24 @@ class SubtitleExtractorGUI(FluentWindow):
         # 禁用云母效果
         self.setMicaEffectEnabled(False)
 
-        # 设置窗口图标
-        self.setWindowIcon(QtGui.QIcon("design/vsr.ico"))
+        # 设置窗口图标 (새 SVG 우선, 없으면 기존 .ico fallback)
+        _design_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "design")
+        _icon_svg = os.path.join(_design_dir, "icon.svg")
+        _icon_ico = os.path.join(_design_dir, "vsr.ico")
+        if os.path.exists(_icon_svg):
+            self.setWindowIcon(QtGui.QIcon(_icon_svg))
+        elif os.path.exists(_icon_ico):
+            self.setWindowIcon(QtGui.QIcon(_icon_ico))
         self.setWindowTitle(tr['SubtitleExtractorGUI']['Title'] + " v" + VERSION)
         # 创建界面布局
         self._create_layout()
         self._connectSignalToSlot()
         # 좌측 네비게이션(사이드 메뉴) 완전 숨김
         self._hide_navigation_panel()
+
+    # macOS 트래픽 라이트(닫기/최소화/최대화)를 좌측에 배치 (네이티브 macOS 관례)
+    def systemTitleBarRect(self, size: QSize) -> QRect:
+        return QRect(0, 0 if self.isFullScreen() else 9, 75, size.height())
 
     def _connectSignalToSlot(self):
         config.appRestartSig.connect(self._showRestartTooltip)
@@ -227,6 +237,11 @@ if __name__ == '__main__':
     Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     app = QtWidgets.QApplication(sys.argv)
     app.setAttribute(Qt.AA_DontCreateNativeWidgetSiblings)
+
+    # 앱 전역 아이콘 (Cmd+Tab 스위처 등에서 사용)
+    _app_icon_svg = os.path.join(os.path.dirname(os.path.abspath(__file__)), "design", "icon.svg")
+    if os.path.exists(_app_icon_svg):
+        app.setWindowIcon(QtGui.QIcon(_app_icon_svg))
 
     # 메모리 상의 config 객체에도 한 번 더 고정값을 적용 (이중 안전장치)
     _force_fixed_settings()

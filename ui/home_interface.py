@@ -4,11 +4,13 @@ import threading
 import multiprocessing
 import time
 import traceback
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout
+import subprocess
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFileDialog
 from PySide6.QtCore import Slot, QRect, Signal
 from PySide6 import QtWidgets
 from datetime import datetime
-from qfluentwidgets import (PushButton, CardWidget, TextEdit, FluentIcon)
+from qfluentwidgets import (PushButton, CardWidget, TextEdit, FluentIcon,
+                            PushSettingCard)
 from ui.setting_interface import SettingInterface
 from ui.component.video_display_component import VideoDisplayComponent
 from ui.component.task_list_component import TaskListComponent, TaskStatus, TaskOptions
@@ -115,6 +117,28 @@ class HomeInterface(QWidget):
         settings_container.setLayout(self.setting_interface)
         settings_container.setVisible(False)
         # right_layout 에 추가하지 않음 → 빈 공간도 차지하지 않음
+
+        # 저장 폴더 카드 (단순화된 GUI에 노출되는 유일한 설정)
+        self.save_folder_card = PushSettingCard(
+            text=tr["Setting"]["ChooseDirectory"],
+            icon=FluentIcon.FOLDER,
+            title=tr["Setting"]["SaveDirectory"],
+            content=self._readable_save_path(),
+            parent=self,
+        )
+        self.save_folder_card.clicked.connect(self._on_choose_save_folder)
+        right_layout.addWidget(self.save_folder_card)
+
+        # 저장 폴더 열기 미니 버튼
+        self.open_save_folder_card = PushSettingCard(
+            text="열기",
+            icon=FluentIcon.SHARE,
+            title="저장 폴더 열기",
+            content="현재 저장 폴더를 Finder 에서 열기",
+            parent=self,
+        )
+        self.open_save_folder_card.clicked.connect(self._open_save_folder_in_finder)
+        right_layout.addWidget(self.open_save_folder_card)
 
         # 添加任务列表容器
         task_list_container = CardWidget(self)
@@ -688,4 +712,39 @@ class HomeInterface(QWidget):
         except Exception as e:
             print(f"Error during close window:", e)
         super().closeEvent(event)
-    
+
+    # ---- 저장 폴더 카드 헬퍼 ------------------------------------------------
+    def _readable_save_path(self) -> str:
+        """홈 디렉토리는 ~ 로 줄여서 표시."""
+        path = config.saveDirectory.value or ""
+        try:
+            home = os.path.expanduser("~")
+            if path and path.startswith(home):
+                return "~" + path[len(home):]
+        except Exception:
+            pass
+        return path
+
+    def _on_choose_save_folder(self):
+        current = config.saveDirectory.value or os.path.expanduser("~")
+        chosen = QFileDialog.getExistingDirectory(
+            self,
+            tr["Setting"]["ChooseDirectory"],
+            current,
+        )
+        if chosen:
+            try:
+                os.makedirs(chosen, exist_ok=True)
+            except Exception as e:
+                print(f"저장 폴더 생성 실패: {e}")
+            config.set(config.saveDirectory, chosen)
+            self.save_folder_card.setContent(self._readable_save_path())
+
+    def _open_save_folder_in_finder(self):
+        path = config.saveDirectory.value
+        if path:
+            try:
+                os.makedirs(path, exist_ok=True)
+                subprocess.run(["open", path], check=False)
+            except Exception as e:
+                print(f"Finder 에서 폴더 열기 실패: {e}")
