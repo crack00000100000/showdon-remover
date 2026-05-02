@@ -9,7 +9,7 @@
 ## 2. 아래 한 줄 복사해서 붙여넣고 Enter
 
 ```
-cd ~/Downloads && curl -fsSL -o install.command https://raw.githubusercontent.com/crack00000100000/showdon-remover/main/install.command && chmod +x install.command && xattr -d com.apple.quarantine install.command 2>/dev/null && open install.command
+cd ~/Downloads && curl -fsSL -o 쇼돈_리무버_install.command "https://raw.githubusercontent.com/crack00000100000/showdon-remover/main/%EC%87%BC%EB%8F%88_%EB%A6%AC%EB%AC%B4%EB%B2%84_install.command" && chmod +x 쇼돈_리무버_install.command && xattr -d com.apple.quarantine 쇼돈_리무버_install.command 2>/dev/null && open 쇼돈_리무버_install.command
 ```
 
 ## 3. 설치 진행
@@ -46,3 +46,13 @@ cd ~/Downloads && curl -fsSL -o install.command https://raw.githubusercontent.co
 위 1~2번 한 줄 명령어를 그대로 한 번 더 실행하면 자동으로 최신 버전으로 갱신됩니다.
 
 기존 ~/Documents/ 에 남아있던 구 설치 폴더는 자동으로 ~/showdon/ 하위로 이동됩니다.
+
+## .app 만 다시 빌드하고 싶을 때
+
+코드만 업데이트했거나 첫 install 에서 .app 빌드만 실패했으면, 아래 한 줄로 .app 만 다시 빌드 가능합니다:
+
+```
+cd ~/Downloads && curl -fsSL -o 쇼돈_리무버_app_builder.command "https://raw.githubusercontent.com/crack00000100000/showdon-remover/main/%EC%87%BC%EB%8F%88_%EB%A6%AC%EB%AC%B4%EB%B2%84_app_builder.command" && chmod +x 쇼돈_리무버_app_builder.command && xattr -d com.apple.quarantine 쇼돈_리무버_app_builder.command 2>/dev/null && open 쇼돈_리무버_app_builder.command
+```
+
+→ 자동으로 `git pull` + `make_app.sh` 실행해서 `~/showdon/showdon-remover/dist/쇼돈 자막 제거기.app` 갱신.

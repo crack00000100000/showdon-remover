@@ -270,8 +270,20 @@ print(f"PySide6: {PySide6.__version__}")
 PYEOF
 ok "검증 통과"
 
-# ---- 13. run.command 실행 권한 ---------------------------------------------
+# ---- 13. 실행 권한 ---------------------------------------------------------
 chmod +x "$INSTALL_DIR/run.command" 2>/dev/null || true
+chmod +x "$INSTALL_DIR/make_app.sh" 2>/dev/null || true
+
+# ---- 14. .app 자동 빌드 ---------------------------------------------------
+step "14. .app 번들 빌드"
+deactivate 2>/dev/null || true
+APP_BUILT=0
+if (cd "$INSTALL_DIR" && ./make_app.sh); then
+  ok ".app 빌드 완료 → $INSTALL_DIR/dist/쇼돈 자막 제거기.app"
+  APP_BUILT=1
+else
+  warn ".app 빌드 실패 — 나중에 수동 실행: cd $INSTALL_DIR && ./make_app.sh"
+fi
 
 # ---- 마무리 ---------------------------------------------------------------
 echo ""
@@ -279,15 +291,16 @@ echo -e "${GREEN}${BOLD}================================================${NC}"
 echo -e "${GREEN}${BOLD}          🎉  설치 모두 완료!${NC}"
 echo -e "${GREEN}${BOLD}================================================${NC}"
 echo ""
-echo "이제부터는 다음 파일을 더블클릭해 GUI 를 실행하세요:"
-echo ""
-echo -e "    ${BOLD}$INSTALL_DIR/run.command${NC}"
-echo ""
-echo "Finder 에서 위 폴더로 이동:"
-echo "  1) Finder 열기"
-echo "  2) 메뉴 → 이동 → 폴더로 이동... (단축키: Cmd+Shift+G)"
-echo "  3) 다음 경로 붙여넣기: $INSTALL_DIR"
-echo "  4) 'run.command' 더블클릭"
-echo ""
-echo "팁: run.command 를 Dock 에 끌어다 놓으면 한 번 클릭으로 실행됩니다."
+if [ "$APP_BUILT" = "1" ]; then
+  echo "다음 파일을 더블클릭해 GUI 를 실행하세요:"
+  echo ""
+  echo -e "    ${BOLD}$INSTALL_DIR/dist/쇼돈 자막 제거기.app${NC}"
+  echo ""
+  echo "  • 첫 실행만 우클릭 → '열기' (Gatekeeper 우회)"
+  echo "  • Dock 에 끌어다 놓으면 한 번 클릭으로 실행"
+else
+  echo "다음 파일을 더블클릭해 GUI 를 실행하세요:"
+  echo ""
+  echo -e "    ${BOLD}$INSTALL_DIR/run.command${NC}"
+fi
 echo ""
