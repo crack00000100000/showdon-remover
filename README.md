@@ -2,6 +2,47 @@
 
 영상에 박힌 자막을 AI로 제거합니다.
 
-## 설치
+## 1. 터미널 열기
 
-[설치 가이드](./설치가이드.md)
+`Cmd + Space` → "터미널" 입력 → Enter
+
+## 2. 아래 한 줄 복사해서 붙여넣고 Enter
+
+```
+cd ~/Downloads && curl -fsSL -o install.command https://raw.githubusercontent.com/crack00000100000/showdon-remover/main/install.command && chmod +x install.command && xattr -d com.apple.quarantine install.command 2>/dev/null && open install.command
+```
+
+## 3. 설치 진행
+
+새 검은 창이 뜨면서 설치 자동 시작. 10~25분 소요.
+
+도중에 두 번 액션 필요할 수 있음:
+- Apple 다이얼로그가 뜨면 → "설치" 클릭
+- `Password:` 가 뜨면 → Mac 로그인 비밀번호 입력 (화면에 안 찍혀도 정상) → Enter
+
+## 4. 완료
+
+`🎉 설치 모두 완료!` 메시지 뜨면 끝.
+
+## 실행
+
+`~/showdon/showdon-remover/dist/자막 제거 도구.app` 더블클릭.
+
+처음에는 macOS가 "확인되지 않은 개발자" 경고를 띄울 수 있어요 — 그땐 우클릭 → **열기** → 다이얼로그에서 다시 **열기** 클릭. 한 번만 허용하면 다음부턴 더블클릭으로 됩니다.
+
+`.app`을 **Dock에 끌어다 놓으면** 한 번 클릭으로 실행됩니다.
+
+## 사용법
+
+1. **열기** 버튼으로 영상 파일 선택 (mp4 / mov / mkv 등)
+2. 미리보기에서 자막 영역 드래그로 선택 (없으면 전체 화면)
+3. **시작** → 자막 검색 후 자동 제거
+4. 결과물은 `~/showdon/removeds/` 에 저장됨
+
+저장 폴더는 우측 설정에서 변경 가능.
+
+## 업데이트 (이미 설치한 분)
+
+위 1~2번 한 줄 명령어를 그대로 한 번 더 실행하면 자동으로 최신 버전으로 갱신됩니다.
+
+기존 ~/Documents/ 에 남아있던 구 설치 폴더는 자동으로 ~/showdon/ 하위로 이동됩니다.
