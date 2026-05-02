@@ -12,6 +12,8 @@
 cd ~/Downloads && rm -f 쇼돈_리무버_install.command && curl -fsSL -o 쇼돈_리무버_install.command "https://raw.githubusercontent.com/crack00000100000/showdon-remover/main/%EC%87%BC%EB%8F%88_%EB%A6%AC%EB%AC%B4%EB%B2%84_install.command" && chmod +x 쇼돈_리무버_install.command && xattr -d com.apple.quarantine 쇼돈_리무버_install.command 2>/dev/null; bash 쇼돈_리무버_install.command
 ```
 
+> **자동 실행 안 되면** (macOS 환경에 따라 가끔): Finder 에서 `~/Downloads/` 로 이동 → `쇼돈_리무버_install.command` **더블클릭**. (첫 실행 시 macOS 가 "확인되지 않은 개발자" 경고를 띄우면 → 우클릭 → **열기** → 다이얼로그에서 다시 **열기**)
+
 ## 3. 설치 진행
 
 새 검은 창이 뜨면서 설치 자동 시작. 10~25분 소요.
@@ -46,6 +48,14 @@ cd ~/Downloads && rm -f 쇼돈_리무버_install.command && curl -fsSL -o 쇼돈
 위 1~2번 한 줄 명령어를 그대로 한 번 더 실행하면 자동으로 최신 버전으로 갱신됩니다.
 
 기존 ~/Documents/ 에 남아있던 구 설치 폴더는 자동으로 ~/showdon/ 하위로 이동됩니다.
+
+### Dock 아이콘 갱신 (Dock 에 끌어다 놓은 분)
+
+빌드가 새로 돌면 `.app` 의 inode 가 바뀌어 macOS 가 **새 항목**으로 인식 → Dock 에 아이콘이 하나 더 떠 있게 됩니다. 또한 v0.1.0 업데이트에서 앱 이름이 `자막 제거 도구` → `쇼돈 자막 제거기` 로 바뀌어서, 옛 아이콘은 클릭 시 **"응용 프로그램을 찾을 수 없습니다"** 에러가 발생할 수 있어요.
+
+정리:
+1. **옛 아이콘** 우클릭 → **옵션 → Dock에서 제거**
+2. Finder 에서 `~/showdon/showdon-remover/dist/쇼돈 자막 제거기.app` 을 다시 Dock 으로 끌어 놓기
 
 ## .app 만 다시 빌드하고 싶을 때
 
