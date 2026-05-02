@@ -197,6 +197,18 @@ else
   ok "Clone 완료"
 fi
 
+# 7-c) ~/Documents 잔존 폴더 보고 (용량 절약)
+# VSR 은 결과물을 입력 영상 옆에 저장하던 구 동작이라 자동 이동할 데이터 폴더는 없음.
+# 코드 폴더는 위 7-a 의 mv 로 이미 처리됨. 누락된 케이스에 대해서만 안내.
+for stale in \
+    "$HOME/Documents/video-subtitle-remover" \
+    "$HOME/Documents/showdon-vsr" \
+    "$HOME/showdon/showdon-vsr"; do
+  if [ -e "$stale" ]; then
+    warn "정리되지 않은 잔존 폴더 감지: $stale (수동 확인 후 삭제 권장 — 용량 절약)"
+  fi
+done
+
 cd "$INSTALL_DIR"
 
 # ---- 8. Python 가상환경 ---------------------------------------------------
