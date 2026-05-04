@@ -6,11 +6,12 @@ import time
 import traceback
 import subprocess
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QFileDialog
-from PySide6.QtCore import Slot, QRect, Signal
+from PySide6.QtCore import Slot, QRect, Signal, Qt
 from PySide6 import QtWidgets
 from datetime import datetime
 from qfluentwidgets import (PushButton, CardWidget, TextEdit, FluentIcon,
-                            PushSettingCard)
+                            PushSettingCard, BodyLabel, StrongBodyLabel,
+                            ComboBox)
 from ui.setting_interface import SettingInterface
 from ui.component.video_display_component import VideoDisplayComponent
 from ui.component.task_list_component import TaskListComponent, TaskStatus, TaskOptions
@@ -103,42 +104,117 @@ class HomeInterface(QWidget):
         output_container.setLayout(output_layout)
         left_layout.addWidget(output_container)
 
-        main_layout.addLayout(left_layout, 2)
+        # 좌측 영상 영역 — stretch=1 로 가용 폭 흡수
+        main_layout.addLayout(left_layout, 1)
 
-        # 右侧设置区域
-        right_layout = QVBoxLayout()
+        # 右侧设置区域 — 콘텐츠(슬라이더 숫자 등)가 변해도 좌측이 안 흔들리게
+        # 우측 컨테이너 자체에 고정 폭(min/max) 부여.
+        right_widget = QWidget(self)
+        right_widget.setMinimumWidth(420)
+        right_widget.setMaximumWidth(540)
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(10)
 
-        # 설정 컨테이너는 생성하지만 숨겨둠 (팀 사용 단순화 목적).
-        # SettingInterface 객체는 이미지 모드 등에서 inpaint 모델 락 처리에 여전히 사용되므로
-        # 인스턴스만 만들고 화면에는 표시하지 않는다.
+        # 설정 컨테이너는 생성하지만 숨김 — SettingInterface 객체는 이미지 모드에서
+        # inpaint 모델 락 처리에 사용되므로 인스턴스만 살려둠.
         settings_container = CardWidget(self)
         self.setting_interface = SettingInterface(settings_container)
         settings_container.setLayout(self.setting_interface)
         settings_container.setVisible(False)
-        # right_layout 에 추가하지 않음 → 빈 공간도 차지하지 않음
 
-        # 저장 폴더 카드 (단순화된 GUI에 노출되는 유일한 설정)
-        self.save_folder_card = PushSettingCard(
-            text=tr["Setting"]["ChooseDirectory"],
-            icon=FluentIcon.FOLDER,
-            title=tr["Setting"]["SaveDirectory"],
-            content=self._readable_save_path(),
-            parent=self,
-        )
-        self.save_folder_card.clicked.connect(self._on_choose_save_folder)
-        right_layout.addWidget(self.save_folder_card)
+        # === 1) 저장 폴더 카드 (맨 위) — 경로 + [폴더 선택]/[열기] ===
+        save_folder_card = CardWidget(self)
+        save_inner = QVBoxLayout(save_folder_card)
+        save_inner.setContentsMargins(16, 14, 16, 14)
+        save_inner.setSpacing(8)
+        save_inner.addWidget(StrongBodyLabel(tr["Setting"]["SaveDirectory"]))
+        self.save_path_label = BodyLabel(self._readable_save_path(), save_folder_card)
+        self.save_path_label.setStyleSheet("color: #555; font-size: 12px;")
+        self.save_path_label.setWordWrap(True)
+        save_inner.addWidget(self.save_path_label)
+        save_btn_row = QHBoxLayout()
+        save_btn_row.setSpacing(8)
+        self.choose_folder_btn = PushButton(tr["Setting"]["ChooseDirectory"], save_folder_card)
+        self.choose_folder_btn.setIcon(FluentIcon.FOLDER)
+        self.choose_folder_btn.clicked.connect(self._on_choose_save_folder)
+        save_btn_row.addWidget(self.choose_folder_btn, 1)
+        self.open_folder_btn = PushButton("열기", save_folder_card)
+        self.open_folder_btn.setIcon(FluentIcon.SHARE)
+        self.open_folder_btn.clicked.connect(self._open_save_folder_in_finder)
+        save_btn_row.addWidget(self.open_folder_btn, 1)
+        save_inner.addLayout(save_btn_row)
+        right_layout.addWidget(save_folder_card)
 
-        # 저장 폴더 열기 미니 버튼
-        self.open_save_folder_card = PushSettingCard(
-            text="열기",
-            icon=FluentIcon.SHARE,
-            title="저장 폴더 열기",
-            content="현재 저장 폴더를 Finder 에서 열기",
-            parent=self,
+        # === 2) 처리 모델 카드 (세로형) ===
+        # ComboBoxSettingCard 의 내부 ComboBox 를 reparent 하면 zip(texts, options)
+        # 미스매치로 라벨↔옵션 어긋남 (라벨 ProPainter 인데 itemData 가 STTN_DET 등).
+        # 우회: 메인 GUI 에서 직접 ComboBox 만들고 visible_options 1:1 정확히 등록.
+        inpaint_card = CardWidget(self)
+        inpaint_inner = QVBoxLayout(inpaint_card)
+        inpaint_inner.setContentsMargins(16, 14, 16, 14)
+        inpaint_inner.setSpacing(6)
+        inpaint_inner.addWidget(StrongBodyLabel(tr["SubtitleExtractorGUI"]["InpaintMode"]))
+        self.inpaint_desc_label = BodyLabel("")
+        # line-height 살짝 늘려 줄바꿈 가독성 ↑
+        self.inpaint_desc_label.setStyleSheet(
+            "color: #555; font-size: 11px; line-height: 1.5;"
         )
-        self.open_save_folder_card.clicked.connect(self._open_save_folder_in_finder)
-        right_layout.addWidget(self.open_save_folder_card)
+        self.inpaint_desc_label.setWordWrap(True)
+        inpaint_inner.addWidget(self.inpaint_desc_label)
+
+        # 직접 ComboBox 생성 — SettingInterface 가 보존한 visible_labels/options 사용
+        # (ComboBoxSettingCard.optionToText 는 zip 미스매치로 신뢰 불가)
+        _v_opts = list(getattr(self.setting_interface, "_inpaint_mode_options", []))
+        _v_labels = list(getattr(self.setting_interface, "_inpaint_mode_labels", []))
+        _v_descs = list(getattr(self.setting_interface, "_inpaint_mode_descriptions", []))
+
+        self.inpaint_combo = ComboBox(inpaint_card)
+        for label, opt in zip(_v_labels, _v_opts):
+            self.inpaint_combo.addItem(label, userData=opt)
+
+        # 현재 config 값 → 인덱스 반영
+        _current_mode = config.inpaintMode.value
+        _idx = next((i for i, opt in enumerate(_v_opts) if opt == _current_mode), 0)
+        self.inpaint_combo.setCurrentIndex(_idx)
+
+        def _on_inpaint_changed(idx: int):
+            if 0 <= idx < self.inpaint_combo.count():
+                _opt = self.inpaint_combo.itemData(idx)
+                config.set(config.inpaintMode, _opt)
+
+                # 모델별 자동 기본 설정 — 사용자가 다른 옵션 안 만져도 적정값으로
+                from backend.tools.constant import (
+                    InpaintMode as _IM, SubtitleDetectMode as _DM,
+                )
+                if _opt == _IM.STTN_AUTO:
+                    # STTN 스마트: 외곽선 두께 보정 자동 (10px), OCR 정밀
+                    config.set(config.sttnMaskDilation, 10)
+                    config.set(config.subtitleAreaForceMask, False)
+                    config.set(config.subtitleDetectMode, _DM.PP_OCRv5_SERVER)
+                elif _opt == _IM.OPENCV:
+                    # OpenCV: 강제 마스크 OFF + 빠른 OCR (속도 우선)
+                    config.set(config.subtitleAreaForceMask, False)
+                    config.set(config.subtitleDetectMode, _DM.PP_OCRv5_MOBILE)
+
+                try:
+                    from qfluentwidgets import qconfig
+                    qconfig.save()
+                except Exception:
+                    pass
+                if 0 <= idx < len(_v_descs):
+                    # \\n → 실제 줄바꿈 (ko.ini 의 escape sequence 처리)
+                    self.inpaint_desc_label.setText(_v_descs[idx].replace("\\n", "\n"))
+        self.inpaint_combo.currentIndexChanged.connect(_on_inpaint_changed)
+        _on_inpaint_changed(_idx)   # 초기 description
+
+        inpaint_inner.addWidget(self.inpaint_combo)
+        right_layout.addWidget(inpaint_card)
+
+        # 외곽선 두께 슬라이더 / 강제마스크 토글 / OCR 모드 ComboBox 는 메인 GUI 노출 X.
+        # 모델 선택 시 _on_inpaint_changed 가 자동으로 적정 기본값 set:
+        #  - STTN 스마트: 외곽선 두께 10, OCR 정밀
+        #  - OpenCV: 강제마스크 OFF, OCR 빠른
 
         # 添加任务列表容器
         task_list_container = CardWidget(self)
@@ -178,7 +254,8 @@ class HomeInterface(QWidget):
         button_container.setLayout(button_layout)
         right_layout.addWidget(button_container)
 
-        main_layout.addLayout(right_layout, 1)
+        # right_widget 은 고정 폭 — stretch=0 으로 자연 폭 유지
+        main_layout.addWidget(right_widget, 0)
     
     def on_scroll_change(self, value):
         """监控滚动条位置变化"""
@@ -337,6 +414,12 @@ class HomeInterface(QWidget):
         self.stop_button.setVisible(not show_run)
 
     def run_button_clicked(self):
+        # 자식 프로세스가 config.json 을 새로 로드하므로 spawn 직전 강제 저장 보장
+        try:
+            from qfluentwidgets import qconfig
+            qconfig.save()
+        except Exception:
+            pass
         if not self.task_list_component.get_pending_tasks():
             self.append_output(tr['SubtitleExtractorGUI']['OpenVideoFirst'])
             return
@@ -391,6 +474,12 @@ class HomeInterface(QWidget):
                                 if key == TaskOptions.SUB_AREAS.value:
                                     value = self.video_display_component.preview_coordinates_to_video_coordinates(value)
                                 options[key] = value
+                            # config 의 inpaint 관련 값들을 자식 프로세스에 명시 전달
+                            # — config.json 디스크 race 회피 (qconfig.save 로도 spawn race 발생)
+                            options["__inpaint_mode__"] = config.inpaintMode.value
+                            options["__sttn_mask_dilation__"] = int(config.sttnMaskDilation.value)
+                            options["__force_mask__"] = bool(config.subtitleAreaForceMask.value)
+                            options["__detect_mode__"] = config.subtitleDetectMode.value
                             # 清理缓存, 使用动态路径
                             task_item.output_path = None
                             output_path = task_item.output_path
@@ -446,6 +535,29 @@ class HomeInterface(QWidget):
         sr = None
         try:
             from backend.main import SubtitleRemover
+            from backend.config import config as _child_config
+            from backend.tools.constant import InpaintMode as _ChildInpaintMode
+
+            # 자식 프로세스 config 강제 갱신 — 메인의 ComboBox 선택을 명시 인자로 전달받음
+            _im = options.pop("__inpaint_mode__", None)
+            _md = options.pop("__sttn_mask_dilation__", None)
+            _fm = options.pop("__force_mask__", None)
+            _dm = options.pop("__detect_mode__", None)
+            if _im is not None:
+                if isinstance(_im, str):
+                    _name = _im.split(".")[-1]
+                    _im = getattr(_ChildInpaintMode, _name, _im)
+                _child_config.set(_child_config.inpaintMode, _im)
+            if _md is not None:
+                _child_config.set(_child_config.sttnMaskDilation, int(_md))
+            if _fm is not None:
+                _child_config.set(_child_config.subtitleAreaForceMask, bool(_fm))
+            if _dm is not None:
+                from backend.tools.constant import SubtitleDetectMode as _ChildDetectMode
+                if isinstance(_dm, str):
+                    _name = _dm.split(".")[-1]
+                    _dm = getattr(_ChildDetectMode, _name, _dm)
+                _child_config.set(_child_config.subtitleDetectMode, _dm)
             sr = SubtitleRemover(video_path, True)
             sr.video_out_path = output_path
             for key in options:
@@ -649,6 +761,9 @@ class HomeInterface(QWidget):
             self._saved_inpaint_mode = config.inpaintMode.value
         config.set(config.inpaintMode, InpaintMode.LAMA)
         self.setting_interface.set_inpaint_mode_enabled(False)
+        # 메인 GUI 의 새 ComboBox 도 disable (이미지 모드)
+        if hasattr(self, "inpaint_combo"):
+            self.inpaint_combo.setEnabled(False)
 
     def _unlock_inpaint_mode(self):
         """视频模式恢复用户原始的 inpaint 模式选择"""
@@ -656,6 +771,15 @@ class HomeInterface(QWidget):
             config.set(config.inpaintMode, self._saved_inpaint_mode)
             self._saved_inpaint_mode = None
         self.setting_interface.set_inpaint_mode_enabled(True)
+        # 메인 GUI 의 새 ComboBox enable + 현재 config 값으로 인덱스 동기화
+        if hasattr(self, "inpaint_combo"):
+            self.inpaint_combo.setEnabled(True)
+            _v_opts = list(getattr(self.setting_interface, "_inpaint_mode_options", []))
+            _idx = next((i for i, opt in enumerate(_v_opts)
+                         if opt == config.inpaintMode.value), 0)
+            self.inpaint_combo.blockSignals(True)
+            self.inpaint_combo.setCurrentIndex(_idx)
+            self.inpaint_combo.blockSignals(False)
         self.video_slider.setValue(1)
         self.video_display_component.set_dragger_enabled(True)
         return True
@@ -669,6 +793,11 @@ class HomeInterface(QWidget):
             "All Files (*.*);;Video Files (*.mp4 *.flv *.wmv *.avi *.mkv *.mov);;Image Files (*.jpg *.jpeg *.png *.bmp *.webp *.tiff)"
         )
         if files:
+            # 새 영상을 열 때 — 옛 PENDING / FAILED / COMPLETED task 자동 정리.
+            # (이전에 중지한 작업이 PENDING 으로 살아있어 새 영상 대신 옛 작업이
+            # 다시 실행되던 이슈 회피. 진행 중 PROCESSING task 는 보호.)
+            self._clear_idle_tasks()
+
             files_loaded = []
             # 倒序打开, 确保第一个视频截图显示在屏幕上
             for path in reversed(files):
@@ -683,6 +812,27 @@ class HomeInterface(QWidget):
                 self.task_list_component.add_task(path)
                 index = max(0, self.task_list_component.find_task_index_by_path(path))
                 self.task_list_component.select_task(index)
+
+    def _clear_idle_tasks(self):
+        """진행 중이 아닌 task (PENDING / FAILED / COMPLETED) 를 모두 정리.
+
+        새 영상 열 때 호출. 이전에 중지한 PENDING task 가 살아남아 새 영상 대신
+        먼저 처리되던 이슈 회피.
+        """
+        try:
+            tasks = list(self.task_list_component.get_all_tasks()) \
+                if hasattr(self.task_list_component, "get_all_tasks") \
+                else list(self.task_list_component.tasks)
+        except Exception:
+            return
+        # 뒤에서부터 제거 (인덱스 시프트 방지)
+        for i in range(len(tasks) - 1, -1, -1):
+            t = tasks[i]
+            if t.status != TaskStatus.PROCESSING:
+                try:
+                    self.task_list_component.delete_task(i)
+                except Exception:
+                    pass
 
     def closeEvent(self, event):
         """窗口关闭时断开信号连接并清理资源"""
@@ -738,7 +888,7 @@ class HomeInterface(QWidget):
             except Exception as e:
                 print(f"저장 폴더 생성 실패: {e}")
             config.set(config.saveDirectory, chosen)
-            self.save_folder_card.setContent(self._readable_save_path())
+            self.save_path_label.setText(self._readable_save_path())
 
     def _open_save_folder_in_finder(self):
         path = config.saveDirectory.value

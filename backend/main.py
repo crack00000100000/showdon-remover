@@ -266,6 +266,39 @@ class SubtitleRemover:
         tbar.write(f"Subtitle detected: {continuous_frame_no_list}")
         continuous_frame_no_list = expand_frame_ranges(continuous_frame_no_list, config.subtitleTimelineBackwardFrameCount.value, config.subtitleTimelineForwardFrameCount.value)
         tbar.write(f"Subtitle timeline expand ({config.subtitleTimelineBackwardFrameCount.value} <- -> {config.subtitleTimelineForwardFrameCount.value}): {continuous_frame_no_list}")
+
+        # 강제 마스크 모드 — 시간축 확장된 frame range 안 모든 frame 의 sub_list 를
+        # 사용자 영역으로 채움.
+        _force_mask = bool(getattr(config.subtitleAreaForceMask, "value", False)) and self.sub_areas
+        if _force_mask:
+            _user_areas = [(s_xmin, s_xmax, s_ymin, s_ymax)
+                           for s_ymin, s_ymax, s_xmin, s_xmax in self.sub_areas]
+            for _s, _e in continuous_frame_no_list:
+                for _fno in range(_s, _e + 1):
+                    sub_list[_fno] = _user_areas
+            tbar.write(f"강제 마스크 적용: {len(continuous_frame_no_list)} 구간, 사용자 영역={_user_areas}")
+        else:
+            # 강제 마스크 OFF — 시간축 마스크 dilation 으로 OCR 누락 frame 보강.
+            # frame N 의 마스크 = frame N-bf..N+ff 의 OCR 결과 union.
+            # 빠른 OCR 의 frame 단위 누락 / 시작 frame 의 작은 마스크를 인접 frame 마스크로
+            # 채워서 자막 형태(박스 X) 유지하면서 누락 잔존 해소.
+            _bf = int(config.subtitleTimelineBackwardFrameCount.value)
+            _ff = int(config.subtitleTimelineForwardFrameCount.value)
+            if (_bf > 0 or _ff > 0) and sub_list:
+                _all_fnos = sorted(sub_list.keys())
+                _min_fno, _max_fno = _all_fnos[0], _all_fnos[-1]
+                _new_sub = {}
+                for _fno in range(max(1, _min_fno - _bf), _max_fno + _ff + 1):
+                    _merged = []
+                    for _j in range(_fno - _bf, _fno + _ff + 1):
+                        if _j in sub_list:
+                            _merged.extend(sub_list[_j])
+                    if _merged:
+                        _new_sub[_fno] = _merged
+                _added = len(_new_sub) - len(sub_list)
+                sub_list = _new_sub
+                tbar.write(f"시간축 마스크 dilation: ±{_bf}/{_ff} frame, +{_added} frame 보강")
+
         continuous_frame_no_list = sub_detector.filter_and_merge_intervals(continuous_frame_no_list, config.sttnReferenceLength.value)
         tbar.write(f'Subtitle filter_and_merge_intervals: {continuous_frame_no_list}')
         del sub_detector

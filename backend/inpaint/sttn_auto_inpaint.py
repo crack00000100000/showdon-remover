@@ -46,6 +46,11 @@ class STTNInpaint:
         :param mask: 字幕区域mask
         """
         _, mask = cv2.threshold(input_mask, 127, 1, cv2.THRESH_BINARY)
+        # 마스크 dilation — 외곽선 자막 처리용 (config.sttnMaskDilation, 0=비활성)
+        _d = int(getattr(config.sttnMaskDilation, "value", 0) or 0)
+        if _d > 0:
+            kernel = np.ones((_d * 2 + 1, _d * 2 + 1), np.uint8)
+            mask = cv2.dilate(mask, kernel, iterations=1)
         mask = mask[:, :, None]
         H_ori, W_ori = mask.shape[:2]
         H_ori = int(H_ori + 0.5)
@@ -221,6 +226,10 @@ class STTNAutoInpaint:
                 mask = self.sttn_inpaint.read_mask(self.mask_path)
             else:
                 _, mask = cv2.threshold(input_mask, 127, 1, cv2.THRESH_BINARY)
+                _d = int(getattr(config.sttnMaskDilation, "value", 0) or 0)
+                if _d > 0:
+                    kernel = np.ones((_d * 2 + 1, _d * 2 + 1), np.uint8)
+                    mask = cv2.dilate(mask, kernel, iterations=1)
                 mask = mask[:, :, None]
 
             # 得到修复区域位置

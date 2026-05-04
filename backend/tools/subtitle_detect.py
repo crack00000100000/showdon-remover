@@ -54,6 +54,8 @@ class SubtitleDetect:
         )
 
     def detect_subtitle(self, img):
+        # 강제 마스크 처리는 main.py 의 video_inpaint 에서 frame range 단위로 후처리.
+        # (expand_frame_ranges 효과까지 받기 위해 OCR 단계에선 일반 검출만 수행)
         temp_list = []
         results = self.text_detector.predict(img)
         sub_areas = self.sub_areas

@@ -107,10 +107,19 @@ def _force_fixed_settings():
 
 
 class SubtitleExtractorGUI(FluentWindow):
+    # 사이즈 sanity 상수 — 좌(영상) + 우(옵션·작업목록) 들어갈 최소 폭 보장.
+    MIN_WIDTH = 1100
+    MIN_HEIGHT = 720
+    MAX_REASONABLE_WIDTH = 2800
+    MAX_REASONABLE_HEIGHT = 1600
+    DEFAULT_WIDTH = 1280
+    DEFAULT_HEIGHT = 800
+
     def __init__(self):
         super().__init__()
         # 禁用云母效果
         self.setMicaEffectEnabled(False)
+        self.setMinimumSize(self.MIN_WIDTH, self.MIN_HEIGHT)
 
         # 设置窗口图标 (새 SVG 우선, 없으면 기존 .ico fallback)
         _design_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "design")
@@ -214,25 +223,43 @@ class SubtitleExtractorGUI(FluentWindow):
                 print(f"更新进度时出错: {str(e)}")
 
     def load_window_position(self):
-        # 尝试读取窗口位置
+        # 尝试读取窗口位置 — sanity check 추가 (너무 좁/넓 또는 화면 밖이면 default 로)
         try:
             x = config.windowX.value
             y = config.windowY.value
             width = config.windowW.value
             height = config.windowH.value
 
-            if not x or not y:
+            screen_rect = QtWidgets.QApplication.primaryScreen().availableGeometry()
+
+            def _bad_size(ww, hh):
+                if not ww or not hh:
+                    return True
+                if ww < type(self).MIN_WIDTH or hh < type(self).MIN_HEIGHT:
+                    return True
+                if ww > type(self).MAX_REASONABLE_WIDTH or hh > type(self).MAX_REASONABLE_HEIGHT:
+                    return True
+                if ww > screen_rect.width() or hh > screen_rect.height():
+                    return True
+                return False
+
+            if _bad_size(width, height):
+                width = type(self).DEFAULT_WIDTH
+                height = type(self).DEFAULT_HEIGHT
+                config.set(config.windowW, width)
+                config.set(config.windowH, height)
+                self.resize(width, height)
                 self.center_window()
                 return
 
-            # 确保窗口在屏幕内
-            screen_rect = QtWidgets.QApplication.primaryScreen().availableGeometry()
-            if (x >= 0 and y >= 0 and
-                x + width <= screen_rect.width() and
-                y + height <= screen_rect.height()):
-                self.setGeometry(x, y, width, height)
-            else:
+            if (x is None or y is None or x < 0 or y < 0
+                    or x + width > screen_rect.width()
+                    or y + height > screen_rect.height()):
+                self.resize(width, height)
                 self.center_window()
+                return
+
+            self.setGeometry(x, y, width, height)
         except Exception as e:
             print(e)
             self.center_window()

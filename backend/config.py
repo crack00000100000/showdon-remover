@@ -35,8 +35,8 @@ class Config(QConfig):
     # 窗口位置和大小
     windowX = ConfigItem("Window", "X", None)
     windowY = ConfigItem("Window", "Y", None)
-    windowW = ConfigItem("Window", "Width", 1200)
-    windowH = ConfigItem("Window", "Height", 1200)
+    windowW = ConfigItem("Window", "Width", 1280)
+    windowH = ConfigItem("Window", "Height", 800)
 
     # 使用一个配置项存储所有选区
     # 默认值为一个选区，格式为："ymin,ymax,xmin,xmax;ymin,ymax,xmin,xmax;..."，分号分隔不同选区
@@ -66,6 +66,16 @@ class Config(QConfig):
     subtitleAreaPixelToleranceXPixel = RangeConfigItem("Main", "SubtitleAreaPixelToleranceXPixel", 20, RangeValidator(0, 300))
     subtitleTimelineBackwardFrameCount = RangeConfigItem("Main", "SubtitleTimelineBackwardFrameCount", 3, RangeValidator(0, 300))
     subtitleTimelineForwardFrameCount = RangeConfigItem("Main", "subtitleTimelineForwardFrameCount", 3, RangeValidator(0, 300))
+    # STTN 마스크 dilation — OCR 검출 마스크가 자막 글자 영역만 잡고 검은 외곽선까지
+    # 못 덮는 케이스를 위한 픽셀 단위 확장. 0=확장 없음 (기본 동작).
+    # 외곽선 잔존이 보이면 3~5px 정도 늘려 시도.
+    sttnMaskDilation = RangeConfigItem("Main", "SttnMaskDilation", 0, RangeValidator(0, 15))
+
+    # 사용자 영역 강제 마스크 — OCR 우회하고 녹색 박스 전체를 모든 프레임의 마스크로.
+    # OpenCV / STTN 모드에서 OCR 검출 누락 (일부 프레임 자막 잔존) 회피.
+    # 영구 자막 / 외곽선 자막 케이스에 유효. default False (OCR 사용).
+    subtitleAreaForceMask = ConfigItem("Main", "SubtitleAreaForceMask", False, BoolValidator())
+
     # 以下参数仅适用STTN算法时，才生效
     """
     1. STTN_SKIP_DETECTION
@@ -130,6 +140,9 @@ if isinstance(_detect_mode_value, str) and _detect_mode_value in ("快速", "Fas
     config.set(config.subtitleDetectMode, SubtitleDetectMode.PP_OCRv5_MOBILE)
 elif isinstance(_detect_mode_value, str) and _detect_mode_value in ("精准", "Precise"):
     config.set(config.subtitleDetectMode, SubtitleDetectMode.PP_OCRv5_SERVER)
+
+# OCR 자막 검출 모드 — GUI 토글로 사용자 선택 (정밀=default, 빠른=강제 마스크용)
+# 강제 정밀 set 제거: 사용자가 강제 마스크 ON + 빠른 OCR 조합 선택 가능
 
 # 读取界面语言配置
 tr = configparser.ConfigParser()
