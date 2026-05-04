@@ -7,7 +7,9 @@ from backend.tools.constant import InpaintMode, SubtitleDetectMode
 import configparser
 
 # 쇼돈 자막 제거기 버전 — 쇼돈 워크스페이스 기준 v0.1 부터 시작
-VERSION = "0.1.0"
+# v0.2.0 — 단순화 (LAMA/ProPainter/STTN_DET/이미지 모드 제거) + MiniMax-Remover 실험 추가
+# v0.2.1 — MiniMax 롤백 (쇼츠 동적 객체 케이스에 부적합 확인). STTN_AUTO + OPENCV 만 운용.
+VERSION = "0.2.1"
 PROJECT_HOME_URL = "https://github.com/YaoFANGUK/video-subtitle-remover"
 PROJECT_ISSUES_URL = PROJECT_HOME_URL + "/issues"
 PROJECT_RELEASES_URL = PROJECT_HOME_URL + "/releases"
@@ -44,10 +46,8 @@ class Config(QConfig):
 
     """
     MODE可选算法类型
-    - InpaintMode.STTN_AUTO 智能擦除版
-    - InpaintMode.STTN_DET 带字幕检测版, 无智能擦除
-    - InpaintMode.LAMA 算法：对于动画类视频效果好，速度一般，不可以跳过字幕检测
-    - InpaintMode.PROPAINTER 算法： 需要消耗大量显存，速度较慢，对运动非常剧烈的视频效果较好
+    - InpaintMode.STTN_AUTO 智能擦除版 (메인 모드, 기본 — 시간축 참조로 동적 객체 복원)
+    - InpaintMode.OPENCV    빠른 패치 기반 (품질 낮음, 영구 자막용)
     """
     # 【设置inpaint算法】
     inpaintMode = OptionsConfigItem("Main", "InpaintMode", InpaintMode.STTN_AUTO, OptionsValidator(InpaintMode), EnumSerializer(InpaintMode))
@@ -103,12 +103,6 @@ class Config(QConfig):
     sttnMaxLoadNum = RangeConfigItem("Sttn", "MaxLoadNum", 50, RangeValidator(1, 300))
     getSttnMaxLoadNum = lambda self: max(self.sttnMaxLoadNum.value, self.sttnNeighborStride.value * self.sttnReferenceLength.value)
     
-    # 以下参数仅适用PROPAINTER算法时，才生效
-    # 【根据自己的GPU显存大小设置】最大同时处理的图片数量，设置越大处理效果越好，但是要求显存越高
-    # 1280x720p视频设置80需要25G显存，设置50需要19G显存
-    # 720x480p视频设置80需要8G显存，设置50需要7G显存
-    propainterMaxLoadNum = RangeConfigItem("ProPainter", "MaxLoadNum", 70, RangeValidator(1, 300))
-
     # 是否使用硬件加速
     hardwareAcceleration = ConfigItem("Main", "HardwareAcceleration", HARDWARD_ACCELERATION_OPTION, BoolValidator())
     
@@ -140,6 +134,14 @@ if isinstance(_detect_mode_value, str) and _detect_mode_value in ("快速", "Fas
     config.set(config.subtitleDetectMode, SubtitleDetectMode.PP_OCRv5_MOBILE)
 elif isinstance(_detect_mode_value, str) and _detect_mode_value in ("精准", "Precise"):
     config.set(config.subtitleDetectMode, SubtitleDetectMode.PP_OCRv5_SERVER)
+
+# v0.2.0 → v0.2.1 마이그레이션: MiniMax 롤백.
+# 옛 config 가 minimax 모드면 STTN_AUTO 로 강제 변경 (MINIMAX enum 자체가 사라져 OptionsValidator fail 회피)
+try:
+    if str(config.inpaintMode.value).lower().endswith("minimax"):
+        config.set(config.inpaintMode, InpaintMode.STTN_AUTO)
+except Exception:
+    config.set(config.inpaintMode, InpaintMode.STTN_AUTO)
 
 # OCR 자막 검출 모드 — GUI 토글로 사용자 선택 (정밀=default, 빠른=강제 마스크용)
 # 강제 정밀 set 제거: 사용자가 강제 마스크 ON + 빠른 OCR 조합 선택 가능

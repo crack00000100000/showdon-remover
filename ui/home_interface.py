@@ -20,7 +20,7 @@ from backend.config import config, tr
 from backend.tools.constant import InpaintMode
 from backend.tools.subtitle_remover_remote_call import SubtitleRemoverRemoteCall
 from backend.tools.process_manager import ProcessManager
-from backend.tools.common_tools import get_readable_path, is_image_file, read_image
+from backend.tools.common_tools import get_readable_path
 
 class HomeInterface(QWidget):
     progress_signal = Signal(int, bool)
@@ -53,7 +53,6 @@ class HomeInterface(QWidget):
         self._stop_event = threading.Event()  # 线程安全的停止信号
         self._worker_thread = None
         self.running_process = None
-        self._saved_inpaint_mode = None  # 保存图片锁定前的 inpaint 模式
         self._video_cap_lock = threading.Lock()  # 保护 video_cap 的线程锁
 
         # 当前正在处理的任务索引
@@ -704,24 +703,21 @@ class HomeInterface(QWidget):
             self.task_list_component.update_task_status(self.current_processing_task_index, TaskStatus.FAILED)
 
     def load_video(self, video_path):
+        """영상 파일 로드. v0.2.0 — 이미지 모드 폐지, 영상만 지원."""
         self.video_path = video_path
         with self._video_cap_lock:
             if self.video_cap:
                 self.video_cap.release()
                 self.video_cap = None
-        # 如果是图片文件，直接走图片加载路径
-        if is_image_file(video_path):
-            return self.load_as_picture(video_path)
-        with self._video_cap_lock:
             self.video_cap = cv2.VideoCapture(get_readable_path(self.video_path))
             if not self.video_cap.isOpened():
                 self.video_cap = None
-                return self.load_as_picture(video_path)
+                return False
             ret, frame = self.video_cap.read()
             if not ret:
                 self.video_cap.release()
                 self.video_cap = None
-                return self.load_as_picture(video_path)
+                return False
             self.frame_count = int(self.video_cap.get(cv2.CAP_PROP_FRAME_COUNT))
             self.frame_height = int(self.video_cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             self.frame_width = int(self.video_cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -729,57 +725,6 @@ class HomeInterface(QWidget):
 
         self.update_preview(frame)
         self.video_slider.setMaximum(self.frame_count)
-        self.video_slider.setValue(1)
-        self.video_display_component.set_dragger_enabled(True)
-        # 视频模式下恢复用户原始的 inpaint 模式选择
-        self._unlock_inpaint_mode()
-        return True
-
-    def load_as_picture(self, path):
-        if not is_image_file(path):
-            return False
-        self.video_path = path
-        self.video_cap = None
-        frame = read_image(get_readable_path(path))
-        if frame is None:
-            return False
-        self.frame_count = 1
-        self.frame_height = frame.shape[0]
-        self.frame_width = frame.shape[1]
-        self.fps = 1
-        self.update_preview(frame)
-        self.video_slider.setMaximum(self.frame_count)
-        self.video_slider.setValue(1)
-        self.video_display_component.set_dragger_enabled(True)
-        # 图片模式锁定为 LAMA
-        self._lock_inpaint_mode_to_lama()
-        return True
-
-    def _lock_inpaint_mode_to_lama(self):
-        """图片模式锁定 inpaint 模式为 LAMA"""
-        if self._saved_inpaint_mode is None:
-            self._saved_inpaint_mode = config.inpaintMode.value
-        config.set(config.inpaintMode, InpaintMode.LAMA)
-        self.setting_interface.set_inpaint_mode_enabled(False)
-        # 메인 GUI 의 새 ComboBox 도 disable (이미지 모드)
-        if hasattr(self, "inpaint_combo"):
-            self.inpaint_combo.setEnabled(False)
-
-    def _unlock_inpaint_mode(self):
-        """视频模式恢复用户原始的 inpaint 模式选择"""
-        if self._saved_inpaint_mode is not None:
-            config.set(config.inpaintMode, self._saved_inpaint_mode)
-            self._saved_inpaint_mode = None
-        self.setting_interface.set_inpaint_mode_enabled(True)
-        # 메인 GUI 의 새 ComboBox enable + 현재 config 값으로 인덱스 동기화
-        if hasattr(self, "inpaint_combo"):
-            self.inpaint_combo.setEnabled(True)
-            _v_opts = list(getattr(self.setting_interface, "_inpaint_mode_options", []))
-            _idx = next((i for i, opt in enumerate(_v_opts)
-                         if opt == config.inpaintMode.value), 0)
-            self.inpaint_combo.blockSignals(True)
-            self.inpaint_combo.setCurrentIndex(_idx)
-            self.inpaint_combo.blockSignals(False)
         self.video_slider.setValue(1)
         self.video_display_component.set_dragger_enabled(True)
         return True
@@ -790,7 +735,7 @@ class HomeInterface(QWidget):
             self,
             tr['SubtitleExtractorGUI']['Open'],
             "",
-            "All Files (*.*);;Video Files (*.mp4 *.flv *.wmv *.avi *.mkv *.mov);;Image Files (*.jpg *.jpeg *.png *.bmp *.webp *.tiff)"
+            "Video Files (*.mp4 *.flv *.wmv *.avi *.mkv *.mov);;All Files (*.*)"
         )
         if files:
             # 새 영상을 열 때 — 옛 PENDING / FAILED / COMPLETED task 자동 정리.

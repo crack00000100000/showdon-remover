@@ -2,7 +2,6 @@ import os
 from pathlib import Path
 from enum import Enum, unique
 from dataclasses import dataclass
-from functools import cached_property
 
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QMenu, QAbstractItemView, QTableWidgetItem, QHeaderView
 from PySide6.QtCore import Qt, Signal, QModelIndex, QUrl
@@ -11,7 +10,6 @@ from PySide6.QtGui import QAction, QColor, QBrush
 from showinfm import show_in_file_manager
 
 from backend.config import config, tr
-from backend.tools.common_tools import is_image_file
 
 @unique
 class TaskStatus(Enum):
@@ -38,24 +36,15 @@ class Task:
 
     @property
     def output_path(self):
-        """获取输出路径"""
+        """获取输出路径 (v0.2.0 — 영상 전용, 항상 .mp4)"""
         if self._output_path is not None:
             return self._output_path
         save_directory = os.path.dirname(self.path) if not config.saveDirectory.value else config.saveDirectory.value
-        if self.is_image:
-            output_path = os.path.abspath(os.path.join(save_directory, f'{Path(self.path).stem}_no_sub.png'))
-        else:
-            output_path = os.path.abspath(os.path.join(save_directory, f'{Path(self.path).stem}_no_sub.mp4'))
-        return output_path
+        return os.path.abspath(os.path.join(save_directory, f'{Path(self.path).stem}_no_sub.mp4'))
 
     @output_path.setter
     def output_path(self, value):
         self._output_path = value
-
-    @cached_property
-    def is_image(self):
-        """判断是否是图片文件"""
-        return is_image_file(self.path)
 
 class TaskListComponent(QWidget):
     """任务列表组件"""

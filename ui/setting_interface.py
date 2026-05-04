@@ -25,29 +25,23 @@ class SettingInterface(QtWidgets.QVBoxLayout):
         )
         self.addWidget(self.interface_combo)
         
-        # 处理模式设置 — 모델 선택 + 선택 시 카드 본문에 모델별 한 줄 설명 동적 표시
-        # GUI 노출 정책: 실용 모델만 (STTN 스마트 / ProPainter / OpenCV).
-        # LAMA / STTN 자막감지는 backend 에 남겨두지만 GUI 에서 숨김 — 일반 사용자에게
-        # 너무 느리거나 사용처가 좁은 모드라 선택 혼란만 야기.
-        # 단순화 — 일상 사용에 STTN 스마트 / OpenCV 두 개만 노출.
-        # ProPainter / LAMA / STTN_DET 는 backend enum 유지하되 GUI 에서 숨김.
-        _hidden_modes = {InpaintMode.LAMA, InpaintMode.STTN_DET, InpaintMode.PROPAINTER}
+        # 处理模式设置 — v0.2.1: STTN_AUTO / OPENCV 두 모드만 노출.
+        # LAMA / ProPainter / STTN_DET 는 v0.2.0 에서 제거.
+        # MiniMax 는 v0.2.1 에서 롤백 (쇼츠 동적 객체 + 자막 겹침 케이스에 부적합).
         all_options = list(config.inpaintMode.validator.options)
         all_labels = list(tr['InpaintMode'].values())
         all_descs = list(tr['InpaintModeContent'].values())
-
-        # 노출되는 옵션/라벨/설명만 추려냄 (enum 순서와 ini 키 순서 1:1 가정)
-        _visible_idx = [i for i, opt in enumerate(all_options) if opt not in _hidden_modes]
-        visible_options = [all_options[i] for i in _visible_idx]
-        visible_labels = [all_labels[i] for i in _visible_idx]
-        self._inpaint_mode_descriptions = [all_descs[i] for i in _visible_idx]
+        visible_options = list(all_options)
+        visible_labels = list(all_labels)
+        self._inpaint_mode_descriptions = list(all_descs)
         self._inpaint_mode_options = visible_options
         # 메인 GUI 가 직접 ComboBox 만들 때 라벨 가져갈 수 있게 노출
         # (ComboBoxSettingCard.optionToText 는 zip 미스매치라 신뢰 불가)
         self._inpaint_mode_labels = visible_labels
 
-        # 만약 현재 저장된 설정이 숨김 모드면 첫 노출 옵션(STTN_AUTO)으로 강제 변경
-        if config.inpaintMode.value in _hidden_modes and visible_options:
+        # 옛 config (v0.1.0) 의 사라진 모드 (LAMA/PROPAINTER/STTN_DET) 가 디스크에 남아 있으면
+        # STTN_AUTO 로 강제 마이그레이션
+        if config.inpaintMode.value not in visible_options and visible_options:
             config.set(config.inpaintMode, visible_options[0])
 
         self.inpaint_mode_combo = ComboBoxSettingCard(
@@ -123,10 +117,6 @@ class SettingInterface(QtWidgets.QVBoxLayout):
         # 添加一些空间
         self.addStretch(1)
     
-    def set_inpaint_mode_enabled(self, enabled):
-        """启用或禁用 inpaint 模式下拉框"""
-        self.inpaint_mode_combo.comboBox.setEnabled(enabled)
-
     def _on_inpaint_mode_changed(self, index: int):
         """모드 선택 시 카드 본문에 모델별 한 줄 설명 갱신."""
         try:
